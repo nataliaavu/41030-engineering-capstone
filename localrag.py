@@ -12,6 +12,69 @@ YELLOW = '\033[93m'
 NEON_GREEN = '\033[92m'
 RESET_COLOR = '\033[0m'
 
+def create_vault_from_hotpot(hotpot_path='data/hotpot_dev_distractor_v1.json',
+                             subset_path='data/hotpot_subset.json',
+                             vault_path='vault.txt',
+                             level='easy',
+                             n=5):
+    if not os.path.exists(hotpot_path):
+        print(f"Hotpot file not found at: {hotpot_path}")
+        return
+    with open(hotpot_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    print(f"Loaded {len(data)} items from {hotpot_path}")
+
+    # Report available level values (if any) and try a case-insensitive match
+    from collections import Counter
+    levels = [item.get('level') for item in data if 'level' in item]
+    if levels:
+        level_counts = Counter(levels)
+        print(f"Dataset level counts (sample): {level_counts.most_common(10)}")
+
+    # If dataset contains a 'level' key, do a case-insensitive match; if empty, stop (no fallback)
+    if any('level' in item for item in data):
+        subset = [item for item in data if str(item.get('level', '')).lower() == str(level).lower()][:n]
+        if not subset:
+            print(f"No items found with level '{level}' (case-insensitive). No subset will be created.")
+            return
+    else:
+        subset = data[:n]
+
+    # Save subset for inspection
+    with open(subset_path, 'w', encoding='utf-8') as sf:
+        json.dump(subset, sf, ensure_ascii=False, indent=2)
+    print(f"Wrote subset ({len(subset)}) to {subset_path}")
+
+    # Build vault robustly
+    written = 0
+    with open(vault_path, 'w', encoding='utf-8') as vault:
+        for item in subset:
+            supporting = item.get('supporting_facts', [])
+            context = item.get('context', [])
+            for pair in supporting:
+                # support entries may be [title, sent_id]
+                if not (isinstance(pair, (list, tuple)) and len(pair) >= 2):
+                    print(f"Skipping unexpected supporting_facts entry: {pair}")
+                    continue
+                title, sent_id = pair[0], pair[1]
+                # Find matching context title
+                for ctx_title, sentences in context:
+                    if ctx_title == title:
+                        # guard index errors
+                        try:
+                            idx = int(sent_id)
+                        except Exception:
+                            print(f"Warning: non-integer sent_id {sent_id} for title {title}")
+                            break
+                        if isinstance(sentences, list) and 0 <= idx < len(sentences):
+                            vault.write(sentences[idx].strip() + "\n")
+                            written += 1
+                        else:
+                            print(f"Warning: bad sent_id {sent_id} for title {title}")
+                        break
+    print(f"Wrote {written} lines to {vault_path}")
+
+
 # Function to open a file and return its contents as a string
 def open_file(filepath):
     with open(filepath, 'r', encoding='utf-8') as infile:
@@ -120,6 +183,9 @@ client = OpenAI(
     api_key='llama3'
 )
 
+# Create the vault from the Hotpot dataset using the desired level (set to 'hard' for this dataset)
+create_vault_from_hotpot(level='hard')
+
 # Load the vault content
 print(NEON_GREEN + "Loading vault content..." + RESET_COLOR)
 vault_content = []
@@ -143,7 +209,7 @@ print(vault_embeddings_tensor)
 # Conversation loop
 print("Starting conversation loop...")
 conversation_history = []
-system_message = "You are a helpful assistant that is an expert at extracting the most useful information from a given text. Also bring in extra relevant infromation to the user query from outside the given context."
+system_message = "You are a helpful assistant that is an expert at extracting the most useful information from a given text. Answer based only on the provided context."
 
 while True:
     user_input = input(YELLOW + "Ask a query about your documents (or type 'quit' to exit): " + RESET_COLOR)

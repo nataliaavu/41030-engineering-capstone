@@ -45,3 +45,7 @@ RAG is a way to enhance the capabilities of LLMs by combining their powerful lan
 
 ### What is Ollama?
 Ollama is an open-source platform that simplifies the process of running powerful LLMs locally on your own machine, giving users more control and flexibility in their AI projects. https://www.ollama.com
+
+### To create the Vault from hotpotQA dataset
+python run_create_vault.py
+Get-Content -Path vault.txt -TotalCount 10
