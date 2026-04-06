@@ -7,3 +7,18 @@ system_message: "You are a helpful assistant that is an expert at extracting the
 ollama_api:
   base_url: "http://localhost:11434/v1"
   api_key: "llama3"
+
+pipelines:
+  rag:
+    enable_query_rewrite: true
+    rewrite_after_turn: 1
+
+  chain_of_thought:
+    reasoning_prompt: "Think step by step to answer this question."
+
+  baseline:
+    direct_answer: true
+
+evaluation:
+  max_samples: 10
+  output_file: "evaluation_results.json"

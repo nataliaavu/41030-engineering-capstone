@@ -1,3 +1,4 @@
 *.pyc
 *.txt
-
+evaluation_results.json
+vault_embeddings.json
