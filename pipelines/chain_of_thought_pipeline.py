@@ -19,11 +19,11 @@ def load_config(config_path=None):
 
 def generate_chain_of_thought(query, system_message, ollama_model, client):
     """Generate response using Chain of Thought reasoning"""
-    prompt = f"""Please think through this question step by step, showing your reasoning process clearly.
+    prompt = f"""Think through this question step by step. Show your reasoning clearly.
 
-Question: {query}
+    Question: {query}
 
-Please provide your final answer after showing your step-by-step reasoning."""
+    IMPORTANT: After showing your reasoning, write "Final Answer:" followed by ONLY the answer itself (no explanation). For yes/no questions, write only "yes" or "no"."""
 
     messages = [
         {"role": "system", "content": system_message},
@@ -38,20 +38,26 @@ Please provide your final answer after showing your step-by-step reasoning."""
     )
 
     full_response = response.choices[0].message.content
-
-    # Try to separate reasoning from final answer
-    # Look for common patterns
     reasoning = full_response
     answer = full_response
 
-    # Common separators
-    separators = ["Final Answer:", "Answer:", "Conclusion:"]
+    # Extract answer if common separators are found
+    separators = ["Final Answer:", "final answer:", "Therefore, my final answer is:", "Conclusion:", "conclusion:", "Answer:", "answer is:"]
     for sep in separators:
         if sep in full_response:
             parts = full_response.split(sep, 1)
             reasoning = parts[0].strip()
-            answer = parts[1].strip()
+            answer = parts[1].strip() if len(parts) > 1 else answer
+            answer = answer.split('\n')[0].strip()
             break
+    
+    if answer == full_response:
+        lines = [line.strip() for line in full_response.split('\n') if line.strip()]
+        if lines:
+            answer = lines[-1]
+            for prefix in ["**No**", "**Yes**", "**", "Final answer:", "Answer:"]:
+                if answer.startswith(prefix):
+                    answer = answer[len(prefix):].strip()
 
     return reasoning, answer
 
@@ -64,7 +70,7 @@ class ChainOfThoughtPipeline:
             base_url=config['ollama_api']['base_url'],
             api_key=config['ollama_api']['api_key']
         )
-        self.system_message = "You are a helpful assistant that thinks step by step to provide accurate answers. Always show your reasoning process clearly before giving the final answer."
+        self.system_message = "You are a helpful assistant. Think step by step through your reasoning, then provide ONLY the final answer. For yes/no questions, answer with only 'yes' or 'no'. Do not include any explanation after your final answer."
 
     def process_query(self, query):
         """Process a query through the Chain of Thought pipeline"""
@@ -80,11 +86,7 @@ class ChainOfThoughtPipeline:
         print(CYAN + f"Reasoning: {reasoning}" + RESET_COLOR)
         print(NEON_GREEN + f"Final Answer: {answer}" + RESET_COLOR)
 
-        return {
-            'answer': answer,
-            'reasoning': reasoning,
-            'context': []  # No external context used
-        }
+        return {'answer': answer, 'reasoning': reasoning, 'context': []}
 
 def main():
     """Main function for standalone CoT pipeline execution"""

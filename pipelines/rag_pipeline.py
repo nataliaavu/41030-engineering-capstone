@@ -1,6 +1,5 @@
 import torch
 import ollama
-import os
 from openai import OpenAI
 import json
 import yaml
@@ -41,54 +40,35 @@ def create_vault_from_hotpot(hotpot_path=None,
         data = json.load(f)
     print(f"Loaded {len(data)} items from {hotpot_path}")
 
-    # Report available level values (if any) and try a case-insensitive match
-    from collections import Counter
-    levels = [item.get('level') for item in data if 'level' in item]
-    if levels:
-        level_counts = Counter(levels)
-        print(f"Dataset level counts (sample): {level_counts.most_common(10)}")
-
-    # If dataset contains a 'level' key, do a case-insensitive match; if empty, stop (no fallback)
     if any('level' in item for item in data):
         subset = [item for item in data if str(item.get('level', '')).lower() == str(level).lower()][:n]
         if not subset:
-            print(f"No items found with level '{level}' (case-insensitive). No subset will be created.")
+            print(f"No items found with level '{level}'. No subset created.")
             return
     else:
         subset = data[:n]
 
-    # Save subset for inspection
+    # Save subset
     with open(subset_path, 'w', encoding='utf-8') as sf:
         json.dump(subset, sf, ensure_ascii=False, indent=2)
     print(f"Wrote subset ({len(subset)}) to {subset_path}")
 
-    # Build vault robustly
+    # Build vault
     written = 0
     with open(vault_path, 'w', encoding='utf-8') as vault:
         for item in subset:
             supporting = item.get('supporting_facts', [])
             context = item.get('context', [])
-            for pair in supporting:
-                # support entries may be [title, sent_id]
-                if not (isinstance(pair, (list, tuple)) and len(pair) >= 2):
-                    print(f"Skipping unexpected supporting_facts entry: {pair}")
-                    continue
-                title, sent_id = pair[0], pair[1]
-                # Find matching context title
+            for title, sent_id in supporting:
                 for ctx_title, sentences in context:
-                    if ctx_title == title:
-                        # guard index errors
+                    if ctx_title == title and isinstance(sentences, list):
                         try:
                             idx = int(sent_id)
-                        except Exception:
-                            print(f"Warning: non-integer sent_id {sent_id} for title {title}")
-                            break
-                        if isinstance(sentences, list) and 0 <= idx < len(sentences):
-                            vault.write(sentences[idx].strip() + "\n")
-                            written += 1
-                        else:
-                            print(f"Warning: bad sent_id {sent_id} for title {title}")
-                        break
+                            if 0 <= idx < len(sentences):
+                                vault.write(sentences[idx].strip() + "\n")
+                                written += 1
+                        except (ValueError, IndexError):
+                            pass
     print(f"Wrote {written} lines to {vault_path}")
 
 def resolve_repo_path(path):
@@ -145,36 +125,6 @@ def get_relevant_context(query, vault_embeddings, vault_content, top_k=3):
     relevant_context = [vault_content[idx].strip() for idx in top_indices]
     return relevant_context
 
-def rewrite_query(user_input, conversation_history, ollama_model, client):
-    """Rewrite query based on conversation history"""
-    context = "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation_history[-2:]])
-    prompt = f"""Rewrite the following query by incorporating relevant context from the conversation history.
-    The rewritten query should:
-
-    - Preserve the core intent and meaning of the original query
-    - Expand and clarify the query to make it more specific and informative for retrieving relevant context
-    - Avoid introducing new topics or queries that deviate from the original query
-    - DONT EVER ANSWER the Original query, but instead focus on rephrasing and expanding it into a new query
-
-    Return ONLY the rewritten query text, without any additional formatting or explanations.
-
-    Conversation History:
-    {context}
-
-    Original query: [{user_input}]
-
-    Rewritten query:
-    """
-    response = client.chat.completions.create(
-        model=ollama_model,
-        messages=[{"role": "system", "content": prompt}],
-        max_tokens=200,
-        n=1,
-        temperature=0.1,
-    )
-    rewritten_query = response.choices[0].message.content.strip()
-    return rewritten_query
-
 def generate_response(query, context, system_message, ollama_model, client):
     """Generate response using LLM with context"""
     user_input_with_context = query
@@ -196,7 +146,7 @@ def generate_response(query, context, system_message, ollama_model, client):
     return response.choices[0].message.content
 
 class RAGPipeline:
-    """RAG Pipeline with query rewriting"""
+    """Retrieval-Augmented Generation pipeline"""
 
     def __init__(self, config):
         self.config = config
@@ -214,14 +164,7 @@ class RAGPipeline:
 
     def process_query(self, query):
         """Process a query through the RAG pipeline"""
-        # Rewrite query if not first turn
-        if len(self.conversation_history) > 0:
-            rewritten_query = rewrite_query(query, self.conversation_history, self.config['ollama_model'], self.client)
-            print(PINK + f"Original Query: {query}" + RESET_COLOR)
-            print(PINK + f"Rewritten Query: {rewritten_query}" + RESET_COLOR)
-            search_query = rewritten_query
-        else:
-            search_query = query
+        search_query = query
 
         # Retrieve relevant context
         context = get_relevant_context(search_query, self.vault_embeddings, self.vault_content, self.config['top_k'])

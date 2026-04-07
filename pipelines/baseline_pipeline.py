@@ -42,7 +42,7 @@ class BaselinePipeline:
             base_url=config['ollama_api']['base_url'],
             api_key=config['ollama_api']['api_key']
         )
-        self.system_message = "You are a helpful assistant. Answer questions directly and accurately."
+        self.system_message = "You are a helpful assistant. Answer the question with ONLY a short, direct answer. For yes/no questions, answer with only 'yes' or 'no'. Do not include explanations."
 
     def process_query(self, query):
         """Process a query through the baseline pipeline"""
@@ -59,8 +59,8 @@ class BaselinePipeline:
 
         return {
             'answer': answer,
-            'reasoning': None,  # No reasoning in baseline
-            'context': []  # No external context used
+            'reasoning': None,
+            'context': []
         }
 
 def main():
