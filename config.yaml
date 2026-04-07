@@ -2,7 +2,7 @@ vault_file: "vault.txt"
 embeddings_file: "vault_embeddings.json"
 ollama_model: "llama3"
 top_k: 7
-system_message: "You are a helpful assistant that is an expert at extracting the most useful information from a given text"
+system_message: "You are a helpful assistant. Answer the question with a short, direct answer based on the provided context."
 
 ollama_api:
   base_url: "http://localhost:11434/v1"
@@ -18,7 +18,3 @@ pipelines:
 
   baseline:
     direct_answer: true
-
-evaluation:
-  max_samples: 10
-  output_file: "evaluation_results.json"
