@@ -2,3 +2,4 @@
 f1_evaluation_results.json
 em_evaluation_results.json
 vault_embeddings.json
+data/hotpot_subset.json
