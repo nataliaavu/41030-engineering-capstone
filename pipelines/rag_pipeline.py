@@ -1,11 +1,15 @@
+import sys
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR))
+
 import torch
 import ollama
 from openai import OpenAI
 import json
 import yaml
-from pathlib import Path
-
-ROOT_DIR = Path(__file__).resolve().parent.parent
+from utils.run_create_vault import create_vault_from_hotpot
 
 # ANSI escape codes for colors
 PINK = '\033[95m'
@@ -20,56 +24,20 @@ def load_config(config_path=None):
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
-def create_vault_from_hotpot(hotpot_path=None,
-                             subset_path=None,
-                             vault_path=None,
-                             level='easy',
-                             n=10):
-    """Create vault from HotpotQA dataset"""
-    hotpot_path = hotpot_path or ROOT_DIR / 'data' / 'hotpot_dev_distractor_v1.json'
-    subset_path = subset_path or ROOT_DIR / 'data' / 'hotpot_subset.json'
-    vault_path = vault_path or ROOT_DIR / 'vault.txt'
-    hotpot_path = Path(hotpot_path)
-    subset_path = Path(subset_path)
-    vault_path = Path(vault_path)
+def ensure_vault_exists(vault_path, level='hard', n=10):
+    """Ensure a vault file exists by generating it from the Hotpot dataset if needed."""
+    vault_path = resolve_repo_path(vault_path)
+    if vault_path.exists():
+        return vault_path
 
-    if not hotpot_path.exists():
-        print(f"Hotpot file not found at: {hotpot_path}")
-        return
-    with open(hotpot_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    print(f"Loaded {len(data)} items from {hotpot_path}")
+    print(f"Vault file not found at {vault_path}. Creating vault from Hotpot dataset...")
+    vault_path.parent.mkdir(parents=True, exist_ok=True)
+    create_vault_from_hotpot(vault_path=vault_path, level=level, n=n)
 
-    if any('level' in item for item in data):
-        subset = [item for item in data if str(item.get('level', '')).lower() == str(level).lower()][:n]
-        if not subset:
-            print(f"No items found with level '{level}'. No subset created.")
-            return
-    else:
-        subset = data[:n]
+    if not vault_path.exists():
+        raise FileNotFoundError(f"Failed to create vault at {vault_path}")
+    return vault_path
 
-    # Save subset
-    with open(subset_path, 'w', encoding='utf-8') as sf:
-        json.dump(subset, sf, ensure_ascii=False, indent=2)
-    print(f"Wrote subset ({len(subset)}) to {subset_path}")
-
-    # Build vault
-    written = 0
-    with open(vault_path, 'w', encoding='utf-8') as vault:
-        for item in subset:
-            supporting = item.get('supporting_facts', [])
-            context = item.get('context', [])
-            for title, sent_id in supporting:
-                for ctx_title, sentences in context:
-                    if ctx_title == title and isinstance(sentences, list):
-                        try:
-                            idx = int(sent_id)
-                            if 0 <= idx < len(sentences):
-                                vault.write(sentences[idx].strip() + "\n")
-                                written += 1
-                        except (ValueError, IndexError):
-                            pass
-    print(f"Wrote {written} lines to {vault_path}")
 
 def resolve_repo_path(path):
     """Resolve relative paths against the repository root"""
@@ -78,9 +46,10 @@ def resolve_repo_path(path):
     p = Path(path)
     return p if p.is_absolute() else ROOT_DIR / p
 
+
 def load_vault_content(vault_path):
     """Load vault content from file"""
-    vault_path = resolve_repo_path(vault_path)
+    vault_path = ensure_vault_exists(vault_path)
     if not vault_path.exists():
         return []
     with open(vault_path, "r", encoding='utf-8') as vault_file:
@@ -107,6 +76,7 @@ def load_or_generate_embeddings(vault_content, embeddings_file, embedding_model=
         vault_embeddings.append(response["embedding"])
 
     # Save to cache
+    embeddings_path.parent.mkdir(parents=True, exist_ok=True)
     with open(embeddings_path, 'w') as f:
         json.dump(vault_embeddings, f)
     print(f"Saved embeddings to {embeddings_path}")
