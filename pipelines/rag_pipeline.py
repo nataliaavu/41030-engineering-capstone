@@ -24,7 +24,7 @@ def load_config(config_path=None):
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
-def ensure_vault_exists(vault_path, level='hard', n=10):
+def ensure_vault_exists(vault_path, level='hard', n=300):
     """Ensure a vault file exists by generating it from the Hotpot dataset if needed."""
     vault_path = resolve_repo_path(vault_path)
     if vault_path.exists():
@@ -70,7 +70,7 @@ def load_or_generate_embeddings(vault_content, embeddings_file, embedding_model=
     print("Generating embeddings for vault content...")
     vault_embeddings = []
     for i, content in enumerate(vault_content):
-        if i % 10 == 0:
+        if i % 300 == 0:
             print(f"Processing {i}/{len(vault_content)}")
         response = ollama.embeddings(model=embedding_model, prompt=content)
         vault_embeddings.append(response["embedding"])
@@ -130,7 +130,6 @@ class RAGPipeline:
             config['embeddings_file'],
             'mxbai-embed-large'
         )
-        self.conversation_history = []
 
     def process_query(self, query):
         """Process a query through the RAG pipeline"""
@@ -146,10 +145,6 @@ class RAGPipeline:
 
         # Generate response
         response = generate_response(query, context, self.config['system_message'], self.config['ollama_model'], self.client)
-
-        # Update conversation history
-        self.conversation_history.append({"role": "user", "content": query})
-        self.conversation_history.append({"role": "assistant", "content": response})
 
         return {
             'answer': response,

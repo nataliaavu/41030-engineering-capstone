@@ -83,10 +83,14 @@ class ChainOfThoughtPipeline:
             self.client
         )
 
-        print(CYAN + f"Reasoning: {reasoning}" + RESET_COLOR)
+        print(PINK + f"Reasoning: {reasoning}" + RESET_COLOR)
         print(NEON_GREEN + f"Final Answer: {answer}" + RESET_COLOR)
 
-        return {'answer': answer, 'reasoning': reasoning, 'context': []}
+        return {
+            'answer': answer, 
+            'reasoning': reasoning, 
+            'context': []
+            }
 
 def main():
     """Main function for standalone CoT pipeline execution"""

@@ -11,6 +11,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from pipelines.rag_pipeline import RAGPipeline, load_config
 from pipelines.chain_of_thought_pipeline import ChainOfThoughtPipeline
 from pipelines.baseline_pipeline import BaselinePipeline
+from pipelines.cot_and_rag_pipeline import COTRAGPipeline
 
 def compute_f1(predicted, expected):
     """
@@ -69,7 +70,7 @@ def load_evaluation_data(data_path='data/hotpot_subset.json'):
         if item.get('question') and item.get('answer')
     ]
 
-def evaluate_pipeline(pipeline, eval_data, max_samples=10):
+def evaluate_pipeline(pipeline, eval_data, max_samples=300):
     """Evaluate a pipeline on test data using F1 scoring"""
     results = []
     total_f1 = 0
@@ -120,6 +121,7 @@ def run_comparison(eval_data, config_path, max_samples=5):
     pipelines = {
         'RAG': RAGPipeline(config),
         'Chain_of_Thought': ChainOfThoughtPipeline(config),
+        'COT_RAG': COTRAGPipeline(config),
         'Baseline': BaselinePipeline(config)
     }
 
@@ -168,7 +170,7 @@ def main():
     if args.pipeline == 'all':
         run_comparison(eval_data, config_path, args.samples)
     else:
-        pipeline_map = {'rag': RAGPipeline, 'cot': ChainOfThoughtPipeline, 'baseline': BaselinePipeline}
+        pipeline_map = {'rag': RAGPipeline, 'cot': ChainOfThoughtPipeline, 'baseline': BaselinePipeline, 'cot_rag': COTRAGPipeline}
         pipeline = pipeline_map[args.pipeline](config)
         results, average_f1 = evaluate_pipeline(pipeline, eval_data, args.samples)
         print(f"\n{args.pipeline.upper()} Pipeline F1: {average_f1:.3f}")
