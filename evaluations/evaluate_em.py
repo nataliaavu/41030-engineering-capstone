@@ -11,6 +11,7 @@ from pipelines.rag_pipeline_hybrid import HybridRAGPipeline
 from pipelines.chain_of_thought_pipeline import ChainOfThoughtPipeline
 from pipelines.baseline_pipeline import BaselinePipeline
 from pipelines.cot_and_rag_pipeline import COTRAGPipeline
+from pipelines.cot_and_hybrid_rag_pipeline import COTHybridRAGPipeline
 
 def normalize_answer(text):
     """Normalize answer for exact match comparison following standard QA metric practice"""
@@ -96,6 +97,7 @@ def run_comparison(eval_data, config_path, max_samples=5):
         'Hybrid_RAG': HybridRAGPipeline(config),
         'Chain_of_Thought': ChainOfThoughtPipeline(config),
         'COT_RAG': COTRAGPipeline(config),
+        'COT_Hybrid_RAG': COTHybridRAGPipeline(config),
         'Baseline': BaselinePipeline(config)
     }
 
@@ -128,7 +130,7 @@ def main():
     parser.add_argument("--config", type=Path, default=REPO_ROOT / 'config.yaml', help="Config file path")
     parser.add_argument("--data", type=Path, default=REPO_ROOT / 'data' / 'hotpot_subset.json', help="Evaluation data path")
     parser.add_argument("--samples", type=int, default=5, help="Number of samples to evaluate")
-    parser.add_argument("--pipeline", choices=['rag', 'hybrid', 'cot', 'baseline', 'cot_rag', 'all'], default='all', help="Which pipeline to evaluate")
+    parser.add_argument("--pipeline", choices=['rag', 'hybrid', 'cot', 'cot_rag', 'cot_hybrid', 'baseline', 'all'], default='all', help="Which pipeline to evaluate")
     args = parser.parse_args()
 
     eval_data = load_evaluation_data(str(args.data))
@@ -147,7 +149,8 @@ def main():
             'hybrid': HybridRAGPipeline,
             'cot': ChainOfThoughtPipeline, 
             'baseline': BaselinePipeline, 
-            'cot_rag': COTRAGPipeline
+            'cot_rag': COTRAGPipeline,
+            'cot_hybrid': COTHybridRAGPipeline
         }
         pipeline = pipeline_map[args.pipeline](config)
         results, accuracy = evaluate_pipeline(pipeline, eval_data, args.samples)
