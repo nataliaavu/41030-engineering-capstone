@@ -8,7 +8,7 @@ def create_vault_from_hotpot(hotpot_path=None,
                              subset_path=None,
                              vault_path=None,
                              level='hard',
-                             n=300):
+                             n=1000):
     """Create vault from HotpotQA dataset"""
     hotpot_path = hotpot_path or ROOT_DIR / 'data' / 'hotpot_dev_distractor_v1.json'
     subset_path = subset_path or ROOT_DIR / 'data' / 'hotpot_subset.json'
@@ -29,7 +29,7 @@ def create_vault_from_hotpot(hotpot_path=None,
     levels = [item.get('level') for item in data if 'level' in item]
     if levels:
         level_counts = Counter(levels)
-        print(f"Dataset level counts (sample): {level_counts.most_common(300)}")
+        print(f"Dataset level counts (sample): {level_counts.most_common(1000)}")
 
     # If dataset contains a 'level' key, do a case-insensitive match; if empty, stop (no fallback)
     if any('level' in item for item in data):

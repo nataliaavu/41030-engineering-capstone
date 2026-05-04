@@ -12,8 +12,6 @@ from .rag_pipeline import (
     load_or_generate_embeddings,
     load_config,
     load_vault_content,
-    ensure_vault_exists,
-    resolve_repo_path
 )
 
 # ANSI escape codes for colors

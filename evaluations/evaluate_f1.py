@@ -70,7 +70,7 @@ def load_evaluation_data(data_path='data/hotpot_subset.json'):
         if item.get('question') and item.get('answer')
     ]
 
-def evaluate_pipeline(pipeline, eval_data, max_samples=300):
+def evaluate_pipeline(pipeline, eval_data, max_samples=1000):
     """Evaluate a pipeline on test data using F1 scoring"""
     results = []
     total_f1 = 0

@@ -24,7 +24,7 @@ def load_config(config_path=None):
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
-def ensure_vault_exists(vault_path, level='hard', n=300):
+def ensure_vault_exists(vault_path, level='hard', n=1000):
     """Ensure a vault file exists by generating it from the Hotpot dataset if needed."""
     vault_path = resolve_repo_path(vault_path)
     if vault_path.exists():
@@ -70,7 +70,7 @@ def load_or_generate_embeddings(vault_content, embeddings_file, embedding_model=
     print("Generating embeddings for vault content...")
     vault_embeddings = []
     for i, content in enumerate(vault_content):
-        if i % 300 == 0:
+        if i % 1000 == 0:
             print(f"Processing {i}/{len(vault_content)}")
         response = ollama.embeddings(model=embedding_model, prompt=content)
         vault_embeddings.append(response["embedding"])
