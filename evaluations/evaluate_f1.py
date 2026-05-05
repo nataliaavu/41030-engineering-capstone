@@ -9,9 +9,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from pipelines.rag_pipeline import RAGPipeline, load_config
+from pipelines.rag_pipeline_hybrid import HybridRAGPipeline
 from pipelines.chain_of_thought_pipeline import ChainOfThoughtPipeline
 from pipelines.baseline_pipeline import BaselinePipeline
 from pipelines.cot_and_rag_pipeline import COTRAGPipeline
+from pipelines.cot_and_hybrid_rag_pipeline import COTHybridRAGPipeline
 
 def compute_f1(predicted, expected):
     """
@@ -70,7 +72,7 @@ def load_evaluation_data(data_path='data/hotpot_subset.json'):
         if item.get('question') and item.get('answer')
     ]
 
-def evaluate_pipeline(pipeline, eval_data, max_samples=300):
+def evaluate_pipeline(pipeline, eval_data, max_samples=1000):
     """Evaluate a pipeline on test data using F1 scoring"""
     results = []
     total_f1 = 0
@@ -120,8 +122,10 @@ def run_comparison(eval_data, config_path, max_samples=5):
     config = load_config(config_path)
     pipelines = {
         'RAG': RAGPipeline(config),
+        'Hybrid_RAG': HybridRAGPipeline(config),
         'Chain_of_Thought': ChainOfThoughtPipeline(config),
         'COT_RAG': COTRAGPipeline(config),
+        'COT_Hybrid_RAG': COTHybridRAGPipeline(config),
         'Baseline': BaselinePipeline(config)
     }
 
@@ -156,7 +160,7 @@ def main():
     parser.add_argument("--config", type=Path, default=REPO_ROOT / 'config.yaml', help="Config file path")
     parser.add_argument("--data", type=Path, default=REPO_ROOT / 'data' / 'hotpot_subset.json', help="Evaluation data path")
     parser.add_argument("--samples", type=int, default=5, help="Number of samples to evaluate")
-    parser.add_argument("--pipeline", choices=['rag', 'cot', 'baseline', 'all'], default='all', help="Which pipeline to evaluate")
+    parser.add_argument("--pipeline", choices=['rag', 'hybrid', 'cot', 'cot_rag', 'cot_hybrid', 'baseline', 'all'], default='all', help="Which pipeline to evaluate")
     args = parser.parse_args()
 
     eval_data = load_evaluation_data(str(args.data))
@@ -170,7 +174,14 @@ def main():
     if args.pipeline == 'all':
         run_comparison(eval_data, config_path, args.samples)
     else:
-        pipeline_map = {'rag': RAGPipeline, 'cot': ChainOfThoughtPipeline, 'baseline': BaselinePipeline, 'cot_rag': COTRAGPipeline}
+        pipeline_map = {
+            'rag': RAGPipeline,
+            'hybrid': HybridRAGPipeline,
+            'cot': ChainOfThoughtPipeline,
+            'baseline': BaselinePipeline,
+            'cot_rag': COTRAGPipeline,
+            'cot_hybrid': COTHybridRAGPipeline
+        }
         pipeline = pipeline_map[args.pipeline](config)
         results, average_f1 = evaluate_pipeline(pipeline, eval_data, args.samples)
         print(f"\n{args.pipeline.upper()} Pipeline F1: {average_f1:.3f}")

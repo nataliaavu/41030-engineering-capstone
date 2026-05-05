@@ -7,9 +7,10 @@ sys.path.insert(0, str(ROOT_DIR))
 import torch
 from openai import OpenAI
 import yaml
-from .rag_pipeline import (
-    get_relevant_context,
+from .rag_pipeline_hybrid import (
+    get_hybrid_context,
     load_or_generate_embeddings,
+    build_bm25_index,
     load_config,
     load_vault_content,
 )
@@ -21,8 +22,8 @@ YELLOW = '\033[93m'
 NEON_GREEN = '\033[92m'
 RESET_COLOR = '\033[0m'
 
-def generate_cot_rag_response(query, context, system_message, ollama_model, client):
-    """Generate response using LLM with context and Chain of Thought reasoning"""
+def generate_cot_hybrid_rag_response(query, context, system_message, ollama_model, client):
+    """Generate response using LLM with context and Chain of Thought reasoning (Hybrid RAG)"""
     user_input_with_context = query
     if context:
         context_str = "\n".join(context)
@@ -70,11 +71,13 @@ def generate_cot_rag_response(query, context, system_message, ollama_model, clie
 
     return reasoning, answer
 
-class COTRAGPipeline:
-    """Chain of Thought + Retrieval-Augmented Generation pipeline"""
+class COTHybridRAGPipeline:
+    """Chain of Thought + Hybrid Retrieval-Augmented Generation pipeline"""
 
-    def __init__(self, config):
+    def __init__(self, config, weight_vector=0.6, weight_bm25=0.4):
         self.config = config
+        self.weight_vector = weight_vector
+        self.weight_bm25 = weight_bm25
         self.client = OpenAI(
             base_url=config['ollama_api']['base_url'],
             api_key=config['ollama_api']['api_key']
@@ -86,28 +89,39 @@ class COTRAGPipeline:
             config['embeddings_file'],
             'mxbai-embed-large'
         )
+        print("Building BM25 index for keyword search...")
+        self.bm25_index = build_bm25_index(self.vault_content)
+        print("BM25 index built successfully!")
 
     def process_query(self, query):
-        """Process a query through the RAG pipeline"""
+        """Process a query through the COT + Hybrid RAG pipeline"""
 
-        context = get_relevant_context(query, self.vault_embeddings, self.vault_content, self.config['top_k'])
+        context = get_hybrid_context(
+            query, 
+            self.vault_embeddings, 
+            self.vault_content, 
+            self.bm25_index,
+            self.config['top_k'],
+            weight_vector=self.weight_vector,
+            weight_bm25=self.weight_bm25
+        )
+        
         if context:
             context_str = "\n".join(context)
-            print("Context Pulled from Documents: \n\n" + CYAN + context_str + RESET_COLOR)
+            print("Context Pulled from Documents (Hybrid Retrieval): \n\n" + CYAN + context_str + RESET_COLOR)
         else:
             print(CYAN + "No relevant context found." + RESET_COLOR)
 
-        reasoning, response = generate_cot_rag_response(
+        reasoning, response = generate_cot_hybrid_rag_response(
             query, 
             context, 
             self.system_message, 
             self.config['ollama_model'], 
             self.client
-            )
+        )
         
         print(CYAN + f"Reasoning: {reasoning}" + RESET_COLOR)
         print(NEON_GREEN + f"Final Answer: {response}" + RESET_COLOR)
-
 
         return {
             'answer': response,
@@ -116,11 +130,11 @@ class COTRAGPipeline:
         }
 
 def main():
-    """Main function for combined COT and RAG pipeline execution"""
+    """Main function for combined COT and Hybrid RAG pipeline execution"""
     config = load_config()
-    pipeline = COTRAGPipeline(config)
+    pipeline = COTHybridRAGPipeline(config, weight_vector=0.6, weight_bm25=0.4)
 
-    print("Starting COT + RAG conversation loop...")
+    print("Starting COT + Hybrid RAG conversation loop...")
     while True:
         user_input = input(YELLOW + "Ask a query about your documents (or type 'quit' to exit): " + RESET_COLOR)
         if user_input.lower() == 'quit':
