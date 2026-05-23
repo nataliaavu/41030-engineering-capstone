@@ -17,7 +17,7 @@ def load_config(config_path=None):
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
-def generate_chain_of_thought(query, system_message, ollama_model, client):
+def generate_chain_of_thought(query, system_message, ollama_model, client, max_tokens, temperature):
     """Generate response using Chain of Thought reasoning"""
     prompt = f"""Think through this question step by step. Show your reasoning clearly.
 
@@ -33,8 +33,8 @@ def generate_chain_of_thought(query, system_message, ollama_model, client):
     response = client.chat.completions.create(
         model=ollama_model,
         messages=messages,
-        max_tokens=2000,
-        temperature=0.1,
+        max_tokens=max_tokens,
+        temperature=temperature,
     )
 
     full_response = response.choices[0].message.content
@@ -80,7 +80,9 @@ class ChainOfThoughtPipeline:
             query,
             self.system_message,
             self.config['ollama_model'],
-            self.client
+            self.client,
+            self.config.get('max_tokens', 2000),
+            self.config.get('temperature', 0.1)
         )
 
         print(PINK + f"Reasoning: {reasoning}" + RESET_COLOR)

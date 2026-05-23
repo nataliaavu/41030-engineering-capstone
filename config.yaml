@@ -2,6 +2,8 @@ vault_file: "./utils/vault.txt"
 embeddings_file: "./utils/vault_embeddings.json"
 ollama_model: "llama3"
 top_k: 7
+temperature: 0.1
+max_tokens: 2000
 system_message: "You are a helpful assistant. Answer the question with ONLY a short, direct answer based on the provided context. For yes/no questions, answer with only 'yes' or 'no'. Do not include explanations."
 
 ollama_api:

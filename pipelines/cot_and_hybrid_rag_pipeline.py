@@ -22,7 +22,7 @@ YELLOW = '\033[93m'
 NEON_GREEN = '\033[92m'
 RESET_COLOR = '\033[0m'
 
-def generate_cot_hybrid_rag_response(query, context, system_message, ollama_model, client):
+def generate_cot_hybrid_rag_response(query, context, system_message, ollama_model, client, max_tokens, temperature):
     """Generate response using LLM with context and Chain of Thought reasoning (Hybrid RAG)"""
     user_input_with_context = query
     if context:
@@ -44,8 +44,8 @@ def generate_cot_hybrid_rag_response(query, context, system_message, ollama_mode
     response = client.chat.completions.create(
         model=ollama_model,
         messages=messages,
-        max_tokens=2000,
-        temperature=0.1,
+        max_tokens=max_tokens,
+        temperature=temperature,
     )
 
     full_response = response.choices[0].message.content
@@ -117,7 +117,9 @@ class COTHybridRAGPipeline:
             context, 
             self.system_message, 
             self.config['ollama_model'], 
-            self.client
+            self.client,
+            self.config.get('max_tokens', 2000),
+            self.config.get('temperature', 0.1)
         )
         
         print(CYAN + f"Reasoning: {reasoning}" + RESET_COLOR)

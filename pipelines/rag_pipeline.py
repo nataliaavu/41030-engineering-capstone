@@ -46,7 +46,6 @@ def resolve_repo_path(path):
     p = Path(path)
     return p if p.is_absolute() else ROOT_DIR / p
 
-
 def load_vault_content(vault_path):
     """Load vault content from file"""
     vault_path = ensure_vault_exists(vault_path)
@@ -75,7 +74,6 @@ def load_or_generate_embeddings(vault_content, embeddings_file, embedding_model=
         response = ollama.embeddings(model=embedding_model, prompt=content)
         vault_embeddings.append(response["embedding"])
 
-    # Save to cache
     embeddings_path.parent.mkdir(parents=True, exist_ok=True)
     with open(embeddings_path, 'w') as f:
         json.dump(vault_embeddings, f)
@@ -95,7 +93,7 @@ def get_relevant_context(query, vault_embeddings, vault_content, top_k=3):
     relevant_context = [vault_content[idx].strip() for idx in top_indices]
     return relevant_context
 
-def generate_response(query, context, system_message, ollama_model, client):
+def generate_response(query, context, system_message, ollama_model, client, max_tokens, temperature=None):
     """Generate response using LLM with context"""
     user_input_with_context = query
     if context:
@@ -107,11 +105,11 @@ def generate_response(query, context, system_message, ollama_model, client):
         {"role": "user", "content": user_input_with_context}
     ]
 
-    response = client.chat.completions.create(
-        model=ollama_model,
-        messages=messages,
-        max_tokens=2000,
-    )
+    request_kwargs = {"model": ollama_model, "messages": messages, "max_tokens": max_tokens}
+    if temperature is not None:
+        request_kwargs["temperature"] = temperature
+
+    response = client.chat.completions.create(**request_kwargs)
 
     return response.choices[0].message.content
 
@@ -144,7 +142,15 @@ class RAGPipeline:
             print(CYAN + "No relevant context found." + RESET_COLOR)
 
         # Generate response
-        response = generate_response(query, context, self.config['system_message'], self.config['ollama_model'], self.client)
+        response = generate_response(
+            query,
+            context,
+            self.config['system_message'],
+            self.config['ollama_model'],
+            self.client,
+            self.config.get('max_tokens', 2000),
+            self.config.get('temperature', 0.1)
+        )
 
         return {
             'answer': response,
